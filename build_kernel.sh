@@ -39,6 +39,8 @@ patch_kernel () {
 	fi
 
 	cd "${DIR}/" || exit
+	cp ../dts/am335x-bone-common.dtsi KERNEL/arch/arm/boot/dts/am335x-bone-common.dtsi
+	cp ../dts/am335x-bone.dts KERNEL/arch/arm/boot/dts/am335x-bone.dts
 }
 
 copy_defconfig () {
@@ -85,9 +87,9 @@ make_kernel () {
 	echo "-----------------------------"
 
 	if grep -q dtbs "${DIR}/KERNEL/arch/${KERNEL_ARCH}/Makefile"; then
-		echo "make -j${CORES} ARCH=${KERNEL_ARCH} LOCALVERSION=${BUILD} CROSS_COMPILE=\"${CC}\" dtbs"
+		echo "make -j${CORES} ARCH=${KERNEL_ARCH} LOCALVERSION=${BUILD} CROSS_COMPILE=\"${CC}\" "
 		echo "-----------------------------"
-		make -j${CORES} ARCH=${KERNEL_ARCH} LOCALVERSION=${BUILD} CROSS_COMPILE="${CC}" dtbs
+		make -j${CORES} ARCH=${KERNEL_ARCH} LOCALVERSION=${BUILD} CROSS_COMPILE="${CC}" am335x-bone.dtb
 		echo "-----------------------------"
 	fi
 
@@ -144,6 +146,7 @@ make_pkg () {
 		else
 			find ./arch/${KERNEL_ARCH}/boot/ -iname "*.dtb" -exec cp -v '{}' "${DIR}/deploy/tmp/" \;
 		fi
+		cp "${DIR}/KERNEL/arch/${KERNEL_ARCH}/boot/dts/am335x-bone.dtb" ${DIR}/deploy/tmp/
 		;;
 	esac
 
@@ -233,8 +236,15 @@ if [ ! "${CORES}" ] ; then
 	CORES=$(getconf _NPROCESSORS_ONLN)
 fi
 
-#unset FULL_REBUILD
-FULL_REBUILD=1
+unset FULL_REBUILD
+AUTO_BUILD=1
+REBUILD_CHECK_FILE="rebuild_flag"
+#FULL_REBUILD=1
+
+if [ ! -f "$REBUILD_CHECK_FILE" ]; then
+	FULL_REBUILD=1
+fi
+
 if [ "${FULL_REBUILD}" ] ; then
 	/bin/sh -e "${DIR}/scripts/git.sh" || { exit 1 ; }
 
@@ -244,6 +254,8 @@ if [ "${FULL_REBUILD}" ] ; then
 
 	patch_kernel
 	copy_defconfig
+
+	touch "$REBUILD_CHECK_FILE"
 fi
 if [ ! "${AUTO_BUILD}" ] ; then
 	make_menuconfig
@@ -257,9 +269,9 @@ if [ -f "${DIR}/KERNEL/scripts/Makefile.fwinst" ] ; then
 	#Finally nuked in v4.14.0-rc0 merge...
 	make_firmware_pkg
 fi
-if grep -q dtbs "${DIR}/KERNEL/arch/${KERNEL_ARCH}/Makefile"; then
-	make_dtbs_pkg
-fi
+#if grep -q dtbs "${DIR}/KERNEL/arch/${KERNEL_ARCH}/Makefile"; then
+#       make_dtbs_pkg
+#fi
 echo "-----------------------------"
 echo "Script Complete"
 echo "${KERNEL_UTS}" > kernel_version
